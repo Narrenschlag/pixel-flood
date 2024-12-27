@@ -148,6 +148,8 @@ namespace PF
 
             if (Running == false) return;
 
+            StatusLabel.Text = $"[color=magenta]Initiating proces...\nThis may take a few seconds...";
+
             cancellationTokenSource.Cancel();
             CurrentThreadCount = 0;
 
