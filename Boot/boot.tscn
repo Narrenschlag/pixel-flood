@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://Boot/Boot.cs" id="1_450up"]
 [ext_resource type="PackedScene" uid="uid://b30h4qh0t2tv6" path="res://background.tscn" id="2_sl7wv"]
-[ext_resource type="Texture2D" uid="uid://qtek473hdr3j" path="res://Cutulu/icon-opaque.png" id="2_yjs58"]
+[ext_resource type="Texture2D" uid="uid://nruffuviqtfd" path="res://icon.png" id="3_gqync"]
 
 [node name="Boot" type="Node" node_paths=PackedStringArray("AddressField", "PortField", "ConnectButton", "XRes", "YRes")]
 script = ExtResource("1_450up")
@@ -105,5 +105,5 @@ prefix = "Y"
 [node name="Button" type="Button" parent="Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Enter the Flood"
-icon = ExtResource("2_yjs58")
+icon = ExtResource("3_gqync")
 expand_icon = true

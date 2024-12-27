@@ -10,10 +10,10 @@ config_version=5
 
 [application]
 
-config/name="pixel-flood"
+config/name="Pixel Flooder"
 run/main_scene="res://Master/master.tscn"
 config/features=PackedStringArray("4.3", "C#", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
 
 [dotnet]
 
