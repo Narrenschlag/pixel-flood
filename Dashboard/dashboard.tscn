@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://cavfm8s1k3j3v"]
+[gd_scene load_steps=5 format=3 uid="uid://cavfm8s1k3j3v"]
 
 [ext_resource type="Script" path="res://Dashboard/Dashboard.cs" id="1_4nn7h"]
+[ext_resource type="PackedScene" uid="uid://b30h4qh0t2tv6" path="res://background.tscn" id="2_4d5v1"]
 [ext_resource type="Texture2D" uid="uid://ce5rtcdu6lt5m" path="res://icon.svg" id="2_r1ig8"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_olfd8"]
@@ -11,18 +12,22 @@ border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 0, 1)
 
-[node name="Dashboard" type="Node" node_paths=PackedStringArray("LoadedImg", "Scale", "OffsetX", "OffsetY", "LoadButton", "StartButton", "StopButton", "StatusLabel", "ThreadCount", "ChunkCount")]
+[node name="Dashboard" type="Node" node_paths=PackedStringArray("LoadedImg", "Scale", "OffsetX", "OffsetY", "LoadButton", "EnableDithering", "Duration", "StartButton", "StopButton", "StatusLabel", "ThreadCount", "ChunkCount")]
 script = ExtResource("1_4nn7h")
 LoadedImg = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer/TextureRect")
 Scale = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer/Scale")
 OffsetX = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer/OffsetX")
 OffsetY = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer/OffsetY")
 LoadButton = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer/Load Image")
+EnableDithering = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/CheckBox")
+Duration = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/Duration")
 StartButton = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer2/Start")
 StopButton = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer2/Stop")
 StatusLabel = NodePath("Interface/Outer Margin/Panel/Inner Margin/Resolution")
 ThreadCount = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer3/Threads")
 ChunkCount = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer3/Chunks")
+
+[node name="Background" parent="." instance=ExtResource("2_4d5v1")]
 
 [node name="Interface" type="Control" parent="."]
 layout_mode = 3
@@ -152,6 +157,21 @@ size_flags_horizontal = 3
 max_value = 9999.0
 prefix = "Y"
 suffix = "px"
+
+[node name="CheckBox" type="CheckBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer"]
+layout_mode = 2
+button_pressed = true
+text = "Enable Dithering"
+alignment = 2
+
+[node name="Duration" type="SpinBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer"]
+layout_mode = 2
+min_value = 100.0
+max_value = 10000.0
+step = 100.0
+value = 100.0
+prefix = "Duration:"
+suffix = "ms"
 
 [node name="HBoxContainer2" type="HBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer"]
 layout_mode = 2

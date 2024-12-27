@@ -13,6 +13,8 @@ namespace PF
         [Export] public SpinBox OffsetX { get; set; }
         [Export] public SpinBox OffsetY { get; set; }
         [Export] public Button LoadButton { get; set; }
+        [Export] public CheckBox EnableDithering { get; set; }
+        [Export] public SpinBox Duration { get; set; }
 
         [Export] public Button StartButton { get; set; }
         [Export] public Button StopButton { get; set; }
@@ -23,13 +25,10 @@ namespace PF
 
         public Vector2I Offset { get; set; }
 
-        public Vector2I LoadedSize { get; set; }
-        public Image LoadedImage { get; set; }
+        public readonly List<(Vector2I Size, Image Image, int Duration)> LoadedImages, Images;
 
-        public Vector2I Size { get; set; }
-        public Image Image { get; set; }
-
-        public byte[][] Chunks { get; set; }
+        private Sequence[] Sequences { get; set; }
+        private int SequenceIdx { get; set; }
 
         protected CancellationTokenSource cancellationTokenSource;
         protected CancellationToken CancellationToken;
@@ -42,6 +41,7 @@ namespace PF
         }
 
         private bool Running { get; set; }
+        private int ms;
 
         public override void _EnterTree()
         {
@@ -86,47 +86,60 @@ namespace PF
                 SendThread();
             }
 
-            StatusLabel.Text = $"Running {Running}\nActive Threads: {CurrentThreadCount}\nResoultion {Master.Resolution.X}x{Master.Resolution.Y}\n{Size.X}x{Size.Y}";
+            var size = Sequences.NotEmpty() ? Sequences.ModulatedElement(SequenceIdx).Size : default;
+
+            StatusLabel.Text = $"Running {Running}\nActive Threads: {CurrentThreadCount}\nResoultion {Master.Resolution.X}x{Master.Resolution.Y}\n{size.X}x{size.Y}";
+
+            if (Sequences.Size() > 1 && (ms += Mathf.RoundToInt((float)delta * 1000)) >= Sequences.ModulatedElement(SequenceIdx).Duration)
+            {
+                SequenceIdx = (SequenceIdx + 1).AbsMod(Sequences.Size());
+            }
         }
 
         private void Load()
         {
-            FileSystem.OpenFileDialogue(Directory, this, loaded, true, "png", "jpg");
-
-            void loaded(string[] paths)
-            {
-                if (paths.IsEmpty()) return;
-
-                LoadImage(paths[0]);
-            }
+            FileSystem.OpenFileDialogue(Directory, this, LoadImage, false, "png", "jpg");
         }
 
-        private void LoadImage(string path)
+        private void LoadImage(params string[] paths)
         {
-            if (path.Exists() == false) return;
+            if (paths.IsEmpty()) return;
 
-            var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
-            Directory = path.TrimToDirectory();
+            Directory = paths[0].TrimToDirectory();
+            LoadedImages.Clear();
 
-            LoadedImage = new Image();
-            var buffer = file.GetBuffer((long)file.GetLength());
-
-            if (path.EndsWith(".png"))
+            foreach (var path in paths)
             {
-                LoadedImage.LoadPngFromBuffer(buffer);
+                if (path.Exists() == false) continue;
+
+                var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+                var buffer = file.GetBuffer((long)file.GetLength());
+
+                var img = new Image();
+
+                if (path.EndsWith(".png"))
+                {
+                    img.LoadPngFromBuffer(buffer);
+                }
+
+                else if (path.EndsWith(".svg"))
+                {
+                    img.LoadSvgFromBuffer(buffer);
+                }
+
+                else if (path.EndsWith(".jpg"))
+                {
+                    img.LoadJpgFromBuffer(buffer);
+                }
+
+
+                file.Close();
+
+                var texture = ImageTexture.CreateFromImage(LoadedImages[0].Image);
+                LoadedImg.Texture = texture;
+
+                LoadedImages.Add(((Vector2I)texture.GetSize(), img, (int)Duration.Value));
             }
-
-            else if (path.EndsWith(".jpg"))
-            {
-                LoadedImage.LoadJpgFromBuffer(buffer);
-            }
-
-            file.Close();
-
-            var texture = ImageTexture.CreateFromImage(LoadedImage);
-            LoadedImg.Texture = texture;
-
-            LoadedSize = (Vector2I)texture.GetSize();
         }
 
         private void Start()
@@ -138,43 +151,55 @@ namespace PF
             cancellationTokenSource.Cancel();
             CurrentThreadCount = 0;
 
-            Size = ((Vector2)LoadedSize * (float)Scale.Value).RoundToInt();
             Offset = new((int)OffsetX.Value, (int)OffsetY.Value);
 
-            Image = LoadedImage.Duplicate() as Image;
-            Image.Resize(Size.X, Size.Y);
-
-            var collection = new List<(Vector2I, Color)>();
-
-            for (int k = 0, xi = 0, x = Offset.X; x < Offset.X + Size.X; x++, xi++)
+            Images.Clear();
+            foreach (var set in LoadedImages)
             {
-                for (int yi = 0, y = Offset.Y; y < Offset.Y + Size.Y; y++, yi++, k++)
-                {
-                    var pixel = Image.GetPixel(xi, yi);
+                var img = set.Image.Duplicate() as Image;
 
-                    if (pixel.A > 0)
+                var size = ((Vector2)set.Size * (float)Scale.Value).RoundToInt();
+                img.Resize(size.X, size.Y);
+
+                Images.Add((size, img, set.Duration));
+            }
+
+            Sequences = new Sequence[Images.Count];
+
+            for (int i = 0; i < Images.Count; i++)
+            {
+                var chunkStep = Images[i].Size.X * Images[i].Size.Y / (int)ChunkCount.Value;
+                Sequences[i] = new(new Chunk[(int)ChunkCount.Value], Images[i].Size);
+
+                var collection = new List<(Vector2I, Color)>();
+                var chunks = Sequences[i].Chunks;
+
+                for (int k = 0, xi = 0, x = Offset.X; x < Offset.X + Images[i].Size.X; x++, xi++)
+                {
+                    for (int yi = 0, y = Offset.Y; y < Offset.Y + Images[i].Size.Y; y++, yi++, k++)
                     {
-                        collection.Add((new(x, y), pixel));
+                        var pixel = Images[i].Image.GetPixel(xi, yi);
+
+                        if (pixel.A > 0)
+                        {
+                            collection.Add((new(x, y), pixel));
+                        }
                     }
+                }
+
+                // Shuffle for dithering
+                if (EnableDithering.ButtonPressed) collection.Shuffle();
+
+                var array = collection.ToArray();
+
+                for (int k = 0; k < chunks.Length; k++)
+                {
+                    if (k >= chunks.Length - 1) chunks[k] = new(Master.Client.Build(array[(k * chunkStep)..]));
+                    else chunks[k] = new(Master.Client.Build(array[(k * chunkStep)..((k + 1) * chunkStep)]));
                 }
             }
 
-            // Shuffle for dithering
-            collection.Shuffle();
-
-            var array = collection.ToArray();
-
-            var step = Size.X * Size.Y / (int)ChunkCount.Value;
-            Chunks = new byte[(int)ChunkCount.Value][];
-
-            for (int i = 0; i < Chunks.Length; i++)
-            {
-                if (i >= Chunks.Length - 1) Chunks[i] = Master.Client.Build(array[(i * step)..]).Encode();
-                else Chunks[i] = Master.Client.Build(array[(i * step)..((i + 1) * step)]).Encode();
-            }
-
             Master.Client.Send(Offset);
-            Debug.Log($"Drawing\n{Chunks[0]}");
         }
 
         private void Stop()
@@ -185,17 +210,45 @@ namespace PF
 
         private async void SendThread()
         {
-            if (Running == false || Chunks == null || Chunks.Length < 1) return;
-            if (CurrentThreadCount >= (int)ThreadCount.Value) return;
+            if (Running == false || Sequences.IsEmpty()) return;
 
+            if (CurrentThreadCount >= (int)ThreadCount.Value) return;
             CurrentThreadCount++;
 
-            Master.Client?.Send(Chunks[Random.Range(Chunks.Length)]);
+            var chunks = Sequences.ModulatedElement(SequenceIdx).Chunks;
+
+            Master.Client?.Send(chunks[Random.Range(chunks.Length)].Buffer);
 
             await Task.Delay(1);
             CurrentThreadCount--;
 
             SendThread();
+        }
+
+        private struct Sequence
+        {
+            public Chunk[] Chunks;
+            public Vector2I Size;
+            public int Duration;
+
+            public Sequence(Chunk[] chunks, Vector2I size, int ms = 100)
+            {
+                Chunks = chunks;
+                Duration = ms;
+                Size = size;
+            }
+        }
+
+        private struct Chunk
+        {
+            public byte[] Buffer;
+
+            public Chunk(object obj)
+            {
+                Buffer = obj.Encode();
+            }
+
+            public static explicit operator byte[](Chunk chunk) => chunk.Buffer;
         }
     }
 }

@@ -1,11 +1,14 @@
-[gd_scene load_steps=2 format=3 uid="uid://vpn1i44mabgm"]
+[gd_scene load_steps=3 format=3 uid="uid://vpn1i44mabgm"]
 
 [ext_resource type="Script" path="res://Boot/Limbo.cs" id="1_68urn"]
+[ext_resource type="PackedScene" uid="uid://b30h4qh0t2tv6" path="res://background.tscn" id="2_m16ql"]
 
 [node name="Boot" type="Node" node_paths=PackedStringArray("Label", "CancelButton")]
 script = ExtResource("1_68urn")
 Label = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/RichTextLabel")
 CancelButton = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Button")
+
+[node name="Background" parent="." instance=ExtResource("2_m16ql")]
 
 [node name="Menu" type="Control" parent="."]
 layout_mode = 3

@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://trw13ah58f64"]
+[gd_scene load_steps=4 format=3 uid="uid://trw13ah58f64"]
 
 [ext_resource type="Script" path="res://Boot/Boot.cs" id="1_450up"]
+[ext_resource type="PackedScene" uid="uid://b30h4qh0t2tv6" path="res://background.tscn" id="2_sl7wv"]
 [ext_resource type="Texture2D" uid="uid://qtek473hdr3j" path="res://Cutulu/icon-opaque.png" id="2_yjs58"]
 
 [node name="Boot" type="Node" node_paths=PackedStringArray("AddressField", "PortField", "ConnectButton", "XRes", "YRes")]
@@ -10,6 +11,8 @@ PortField = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxCont
 ConnectButton = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Button")
 XRes = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/X")
 YRes = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Y")
+
+[node name="Background" parent="." instance=ExtResource("2_sl7wv")]
 
 [node name="Menu" type="Control" parent="."]
 layout_mode = 3
