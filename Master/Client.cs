@@ -1,77 +1,148 @@
 namespace PF
 {
+    using System.Threading.Tasks;
     using System.Net.Sockets;
-    using System.IO;
-    using Godot;
-    using System;
     using System.Text;
+    using System.Threading;
+    using Cutulu;
+    using Godot;
 
-    public partial class Client : Cutulu.Networking.Client
+    public partial class Client
     {
+        public TcpClient TcpClient { get; private set; }
         public bool EnableMultiThreading { get; set; }
 
-        public Client(string address, int port, bool multiThreading) : base(address, port, -1)
+        public readonly uint TimeoutMs;
+        public readonly string Address;
+        public readonly int Port;
+
+        public bool Connected => TcpClient.Connected;
+
+        protected CancellationTokenSource cancellationTokenSource;
+        protected CancellationToken CancellationToken;
+
+        public Client(string address, int port, bool multiThreading, uint timeoutMs = 300)
         {
             EnableMultiThreading = multiThreading;
+            TimeoutMs = timeoutMs;
+
+            Address = address;
+            Port = port;
+
+            // Establish cancellation token
+            cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken = cancellationTokenSource.Token;
+
+            Connect();
+        }
+
+        private async void Connect()
+        {
+            try
+            {
+                // Setup tcp client
+                TcpClient = new TcpClient(AddressFamily.InterNetworkV6);
+                TcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                TcpClient.Client.DualMode = true;
+
+                Debug.LogR($"[color=gray]Connecting...");
+                _ = TcpClient.ConnectAsync(Address, Port, CancellationToken);
+
+                Debug.LogR($"[color=gray]Connecting process complete: {Connected}");
+                await timeout();
+            }
+
+            catch
+            {
+                Disconnect();
+            }
+
+            async Task timeout()
+            {
+                var t = 0;
+
+                while (t++ < TimeoutMs && Connected == false && CancellationToken.IsCancellationRequested == false)
+                {
+                    await Task.Delay(1);
+                }
+
+                if (Connected == false)
+                {
+                    Debug.LogR($"[color=indianred]Timeout.");
+                    Disconnect();
+                }
+            }
+        }
+
+        public void Disconnect()
+        {
+            cancellationTokenSource.Cancel();
+            TcpClient?.Close();
+
+            Master.Client = null;
+            Debug.LogR($"[color=indianred]Disconnected Client");
         }
 
         // Brilleputzspray
         // + Mikrophasertuch
         // = Profit
-        public void Send(int x, int y, Color color)
+        public string Build(Vector2I point, Color color)
         {
-            Send((x, y, color));
+            return Build(new[] { (point, color) });
         }
 
-        public override async System.Threading.Tasks.Task Disconnect(int exitCode = 0)
-        {
-            if (exitCode != 1) Master.Client = null;
-
-            await base.Disconnect(exitCode);
-        }
-
-        public void Send(params (int X, int Y, Color color)[] sets)
+        public string Build(params (Vector2I Point, Color Color)[] sets)
         {
             var stringBuilder = new StringBuilder();
 
             for (int i = 0; i < sets.Length; i++)
             {
-                stringBuilder.AppendLine($"{sets[i].X}, {sets[i].Y}, {sets[i].color.ToHtml()}");
+                Append(stringBuilder, ref sets[i].Point, ref sets[i].Color);
             }
 
-            Send(stringBuilder.ToString());
+            return stringBuilder.ToString();
         }
 
-        public void Send(int x, int y, float colorValue)
-        {
-            Send((x, y, colorValue));
-        }
-
-        public void Send(params (int X, int Y, float colorValue)[] sets)
+        public string Build(Color color, params Vector2I[] points)
         {
             var stringBuilder = new StringBuilder();
 
-            for (int i = 0; i < sets.Length; i++)
+            for (int i = 0; i < points.Length; i++)
             {
-                stringBuilder.AppendLine($"{sets[i].X}, {sets[i].Y}, {sets[i].colorValue}");
+                Append(stringBuilder, ref points[i], ref color);
             }
 
-            Send(stringBuilder.ToString());
+            return stringBuilder.ToString();
         }
 
-        public async void Send(string text)
+        public void Append(StringBuilder builder, ref Vector2I point, ref Color value)
+        {
+            if (point.X >= Master.Resolution.X || point.Y >= Master.Resolution.Y || value.A <= 0f) return;
+
+            var hex = value.ToHtml();
+            builder.AppendLine($"PX {point.X} {point.Y} {(value.A < 1f ? hex[6..8] : "")}{hex[0..6]}");
+        }
+
+        public void Send(Vector2I offset)
+        {
+            Send($"OFFSET {offset.X} {offset.Y}");
+        }
+
+        public void Send(string text) => Send(text.Encode());
+
+        public async void Send(byte[] buffer)
         {
             if (Connected == false || TcpClient.GetStream() is not NetworkStream stream) return;
 
             if (EnableMultiThreading)
             {
-                await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes(text));
+                await stream.WriteAsync(buffer);
                 await stream.FlushAsync();
             }
 
             else
             {
-                stream.Write(System.Text.Encoding.UTF8.GetBytes(text));
+                stream.Write(buffer);
                 stream.Flush();
             }
         }

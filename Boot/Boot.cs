@@ -9,6 +9,9 @@ namespace PF
         [Export] public SpinBox PortField { get; set; }
         [Export] public Button ConnectButton { get; set; }
 
+        [Export] public SpinBox XRes { get; set; }
+        [Export] public SpinBox YRes { get; set; }
+
         public override void _EnterTree()
         {
             PortField.GetLineEdit().TextSubmitted += Submitted;
@@ -29,7 +32,10 @@ namespace PF
         {
             AddressField.Text = Master.Address;
             PortField.Value = Master.Port;
-            
+
+            XRes.Value = Master.Resolution.X;
+            YRes.Value = Master.Resolution.Y;
+
             Master.Client = null;
         }
 
@@ -41,6 +47,7 @@ namespace PF
 
         public void Connect()
         {
+            Master.Resolution = new((int)XRes.Value, (int)YRes.Value);
             Master.Client = new(AddressField.Text.Trim(), (int)PortField.Value, true);
         }
     }

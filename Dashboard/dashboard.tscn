@@ -1,6 +1,171 @@
-[gd_scene load_steps=2 format=3 uid="uid://cavfm8s1k3j3v"]
+[gd_scene load_steps=4 format=3 uid="uid://cavfm8s1k3j3v"]
 
 [ext_resource type="Script" path="res://Dashboard/Dashboard.cs" id="1_4nn7h"]
+[ext_resource type="Texture2D" uid="uid://ce5rtcdu6lt5m" path="res://icon.svg" id="2_r1ig8"]
 
-[node name="Dashboard" type="Node"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_olfd8"]
+bg_color = Color(1, 1, 1, 0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 0, 1)
+
+[node name="Dashboard" type="Node" node_paths=PackedStringArray("LoadedImg", "Scale", "OffsetX", "OffsetY", "LoadButton", "StartButton", "StopButton", "StatusLabel", "ThreadCount", "ChunkCount")]
 script = ExtResource("1_4nn7h")
+LoadedImg = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer/TextureRect")
+Scale = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer/Scale")
+OffsetX = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer/OffsetX")
+OffsetY = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer/OffsetY")
+LoadButton = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer/Load Image")
+StartButton = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer2/Start")
+StopButton = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer2/Stop")
+StatusLabel = NodePath("Interface/Outer Margin/Panel/Inner Margin/Resolution")
+ThreadCount = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer3/Threads")
+ChunkCount = NodePath("Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer3/Chunks")
+
+[node name="Interface" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Outer Margin" type="MarginContainer" parent="Interface"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Panel" type="PanelContainer" parent="Interface/Outer Margin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_olfd8")
+
+[node name="Inner Margin" type="MarginContainer" parent="Interface/Outer Margin/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Resolution" type="RichTextLabel" parent="Interface/Outer Margin/Panel/Inner Margin"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 8
+bbcode_enabled = true
+text = "[b]Resolution 1920x1080"
+fit_content = true
+scroll_active = false
+autowrap_mode = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin"]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="PanelContainer" type="PanelContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 8
+
+[node name="Margin" type="MarginContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin"]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer"]
+layout_mode = 2
+texture = ExtResource("2_r1ig8")
+expand_mode = 5
+stretch_mode = 5
+
+[node name="Scale" type="SpinBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer"]
+layout_mode = 2
+min_value = 1.0
+step = 0.1
+value = 1.0
+suffix = "x scale"
+
+[node name="Load Image" type="Button" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer/Margin/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 8
+text = " Load Source "
+
+[node name="PanelContainer2" type="PanelContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="Margin" type="MarginContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin"]
+layout_mode = 2
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer"]
+layout_mode = 2
+
+[node name="Threads" type="SpinBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+min_value = 1.0
+step = 0.1
+value = 2.0
+suffix = "threads"
+
+[node name="Chunks" type="SpinBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(96, 0)
+layout_mode = 2
+min_value = 1.0
+step = 0.1
+value = 4.0
+suffix = "chunks"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer"]
+layout_mode = 2
+
+[node name="OffsetX" type="SpinBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 9999.0
+prefix = "X"
+suffix = "px"
+
+[node name="OffsetY" type="SpinBox" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 9999.0
+prefix = "Y"
+suffix = "px"
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer"]
+layout_mode = 2
+
+[node name="Start" type="Button" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer2"]
+self_modulate = Color(0, 1, 0.307456, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 8
+text = "Start"
+
+[node name="Stop" type="Button" parent="Interface/Outer Margin/Panel/Inner Margin/VBoxContainer/PanelContainer2/Margin/VBoxContainer/HBoxContainer2"]
+self_modulate = Color(1, 0, 0, 1)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 8
+text = "Stop"

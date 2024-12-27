@@ -11,8 +11,6 @@ namespace PF
 
         public static Master Singleton { get; private set; }
 
-        private static Node Current { get; set; }
-
         public static string Address
         {
             get => AppData.GetAppData("HostAddress", NetworkIO.LocalhostIPv4);
@@ -23,6 +21,12 @@ namespace PF
         {
             get => AppData.GetAppData("HostPort", 22);
             set => AppData.SetAppData("HostPort", value);
+        }
+
+        public static Vector2I Resolution
+        {
+            get => AppData.GetAppData("HostResolution", new Vector2I(1920, 1080));
+            set => AppData.SetAppData("HostResolution", value);
         }
 
         private static Client client;
@@ -64,28 +68,25 @@ namespace PF
 
         public static void Limbo()
         {
+            if (Client != null)
+            {
+                Address = Client.Address;
+                Port = Client.Port;
+            }
+
             var limbo = Load<Limbo>(Singleton.LimboScene);
         }
 
         public static void Dashboard()
         {
-            if (Client != null && Client.Connected)
-            {
-                Address = Client.Host;
-                Port = Client.TcpPort;
-            }
-
             var dashboard = Load<Dashboard>(Singleton.DashboardScene);
         }
 
         private static T Load<T>(PackedScene packed) where T : Node
         {
-            Current.Destroy();
+            Singleton.Clear();
 
-            var t = packed.Instantiate<T>(Singleton);
-            Current = t;
-
-            return t;
+            return packed.Instantiate<T>(Singleton);
         }
     }
 }

@@ -20,7 +20,7 @@ namespace PF
 
         public override void _Ready()
         {
-            Label.Text = $"Flooding {Master.Client.Host}:{Master.Client.TcpPort}...";
+            Label.Text = $"Flooding {Master.Client.Address}:{Master.Client.Port}...";
         }
 
         public override void _Process(double delta)

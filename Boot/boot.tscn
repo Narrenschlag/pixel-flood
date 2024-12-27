@@ -3,8 +3,13 @@
 [ext_resource type="Script" path="res://Boot/Boot.cs" id="1_450up"]
 [ext_resource type="Texture2D" uid="uid://qtek473hdr3j" path="res://Cutulu/icon-opaque.png" id="2_yjs58"]
 
-[node name="Boot" type="Node"]
+[node name="Boot" type="Node" node_paths=PackedStringArray("AddressField", "PortField", "ConnectButton", "XRes", "YRes")]
 script = ExtResource("1_450up")
+AddressField = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/Address")
+PortField = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer/Port")
+ConnectButton = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Button")
+XRes = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/X")
+YRes = NodePath("Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2/Y")
 
 [node name="Menu" type="Control" parent="."]
 layout_mode = 3
@@ -76,6 +81,23 @@ layout_mode = 2
 max_value = 99999.0
 value = 22.0
 prefix = ":"
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="X" type="SpinBox" parent="Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 99999.0
+value = 22.0
+prefix = "X"
+
+[node name="Y" type="SpinBox" parent="Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 99999.0
+value = 22.0
+prefix = "Y"
 
 [node name="Button" type="Button" parent="Menu/VBoxContainer/PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
