@@ -1,0 +1,12 @@
+[gd_scene load_steps=5 format=3 uid="uid://d3bplct5c2sxk"]
+
+[ext_resource type="Script" path="res://Master/Master.cs" id="1_xbjms"]
+[ext_resource type="PackedScene" uid="uid://trw13ah58f64" path="res://Boot/boot.tscn" id="2_wcesw"]
+[ext_resource type="PackedScene" uid="uid://cavfm8s1k3j3v" path="res://Dashboard/dashboard.tscn" id="3_4r1u0"]
+[ext_resource type="PackedScene" uid="uid://vpn1i44mabgm" path="res://Boot/limbo.tscn" id="3_6v7rg"]
+
+[node name="Master" type="Node"]
+script = ExtResource("1_xbjms")
+BootScene = ExtResource("2_wcesw")
+LimboScene = ExtResource("3_6v7rg")
+DashboardScene = ExtResource("3_4r1u0")
