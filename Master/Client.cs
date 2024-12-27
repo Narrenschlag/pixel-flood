@@ -30,7 +30,7 @@ namespace PF
             Port = port;
 
             // Establish cancellation token
-            cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource = new();
             CancellationToken = cancellationTokenSource.Token;
 
             Connect();
@@ -45,16 +45,15 @@ namespace PF
                 TcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 TcpClient.Client.DualMode = true;
 
-                Debug.LogR($"[color=gray]Connecting...");
                 _ = TcpClient.ConnectAsync(Address, Port, CancellationToken);
 
-                Debug.LogR($"[color=gray]Connecting process complete: {Connected}");
                 await timeout();
             }
 
-            catch
+            catch (System.Exception ex)
             {
-                Disconnect();
+                Debug.LogR($"[color=indianred]Establishing connection failed. {ex.Message}");
+                lock (this) Disconnect();
             }
 
             async Task timeout()
@@ -69,7 +68,7 @@ namespace PF
                 if (Connected == false)
                 {
                     Debug.LogR($"[color=indianred]Timeout.");
-                    Disconnect();
+                    lock (this) Disconnect();
                 }
             }
         }
@@ -80,18 +79,18 @@ namespace PF
             TcpClient?.Close();
 
             Master.Client = null;
-            Debug.LogR($"[color=indianred]Disconnected Client");
+            Debug.LogR($"[color=indianred]Disconnected Client {Master.Client == null}");
         }
 
         // Brilleputzspray
         // + Mikrophasertuch
         // = Profit
-        public string Build(Vector2I point, Color color)
+        public static string Build(Vector2I point, Color color)
         {
             return Build(new[] { (point, color) });
         }
 
-        public string Build(params (Vector2I Point, Color Color)[] sets)
+        public static string Build(params (Vector2I Point, Color Color)[] sets)
         {
             var stringBuilder = new StringBuilder();
 
@@ -103,7 +102,7 @@ namespace PF
             return stringBuilder.ToString();
         }
 
-        public string Build(Color color, params Vector2I[] points)
+        public static string Build(Color color, params Vector2I[] points)
         {
             var stringBuilder = new StringBuilder();
 
@@ -115,11 +114,10 @@ namespace PF
             return stringBuilder.ToString();
         }
 
-        public void Append(StringBuilder builder, ref Vector2I point, ref Color value)
+        public static void Append(StringBuilder builder, ref Vector2I point, ref Color value)
         {
-            if (point.X >= Master.Resolution.X || point.Y >= Master.Resolution.Y || value.A <= 0f) return;
-
             var hex = value.ToHtml();
+
             builder.AppendLine($"PX {point.X} {point.Y} {(value.A < 1f ? hex[6..8] : "")}{hex[0..6]}");
         }
 
@@ -128,16 +126,16 @@ namespace PF
             Send($"OFFSET {offset.X} {offset.Y}");
         }
 
-        public void Send(string text) => Send(text.Encode());
+        public void Send(string text) => Send(text.Encode(), default);
 
-        public async void Send(byte[] buffer)
+        public async void Send(byte[] buffer, CancellationToken token = default)
         {
             if (Connected == false || TcpClient.GetStream() is not NetworkStream stream) return;
 
             if (EnableMultiThreading)
             {
-                await stream.WriteAsync(buffer);
-                await stream.FlushAsync();
+                await stream.WriteAsync(buffer, token);
+                await stream.FlushAsync(token);
             }
 
             else
