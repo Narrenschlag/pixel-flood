@@ -121,21 +121,16 @@ namespace PF
             builder.AppendLine($"PX {point.X} {point.Y} {(value.A < 1f ? hex[6..8] : "")}{hex[0..6]}");
         }
 
-        public void Send(Vector2I offset)
-        {
-            Send($"OFFSET {offset.X} {offset.Y}");
-        }
+        public void Send(string text) => _ = Send(text.Encode());
 
-        public void Send(string text) => Send(text.Encode(), default);
-
-        public async void Send(byte[] buffer, CancellationToken token = default)
+        public async Task Send(byte[] buffer)
         {
             if (Connected == false || TcpClient.GetStream() is not NetworkStream stream) return;
 
             if (EnableMultiThreading)
             {
-                await stream.WriteAsync(buffer, token);
-                await stream.FlushAsync(token);
+                await stream.WriteAsync(buffer, CancellationToken);
+                await stream.FlushAsync(CancellationToken);
             }
 
             else
