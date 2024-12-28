@@ -50,7 +50,6 @@ namespace PF
         private bool Running { get; set; }
 
         private string[] PastPaths { get; set; }
-        private Vector2I PastOffset { get; set; }
         private float PastScale { get; set; }
         private bool PastDither { get; set; }
 
@@ -184,7 +183,7 @@ namespace PF
 
             Offset = new((int)OffsetX.Value, (int)OffsetY.Value);
 
-            var changed = PastScale != (float)Scale.Value || PastDither != EnableDithering.ButtonPressed || PastOffset != Offset;
+            var changed = PastScale != (float)Scale.Value || PastDither != EnableDithering.ButtonPressed;
 
             if (changed)
             {
@@ -241,10 +240,11 @@ namespace PF
                     // Shuffle for dithering
                     if (EnableDithering.ButtonPressed) collection.Shuffle();
 
+                    Sequences[i].Offset = Offset;
+
                     var array = collection.ToArray();
 
                     var chunkStep = array.Length / (int)ThreadCount.Value;
-                    var offset = $"OFFSET {Offset.X} {Offset.Y}";
                     var chunks = Sequences[i].Chunks;
 
                     for (int k = 0; k < chunks.Length; k++)
@@ -252,10 +252,10 @@ namespace PF
                         if (threadIdx != ThreadIdx) return;
 
                         // Last Step
-                        if (k >= chunks.Length - 1) chunks[k] = new($"{offset}\n{Client.Build(array[(k * chunkStep)..])}");
+                        if (k >= chunks.Length - 1) chunks[k] = new(Client.Build(array[(k * chunkStep)..]));
 
                         // Step
-                        else chunks[k] = new($"{offset}\n{Client.Build(array[(k * chunkStep)..((k + 1) * chunkStep)])}");
+                        else chunks[k] = new(Client.Build(array[(k * chunkStep)..((k + 1) * chunkStep)]));
 
                         await Task.Delay(1);
                     }
@@ -267,12 +267,13 @@ namespace PF
                 foreach (var sql in Sequences)
                 {
                     sql.Duration = (int)Duration.Value;
+
+                    sql.Offset = Offset;
                 }
             }
 
             PastDither = EnableDithering.ButtonPressed;
             PastScale = (float)Scale.Value;
-            PastOffset = Offset;
 
             lock (this)
             {
@@ -343,9 +344,7 @@ namespace PF
 
             lock (this) CurrentThreadCount++;
 
-            var chunks = Sequences.ModulatedElement(SequenceIdx).Chunks;
-
-            await Client?.Send(chunks[chunkIdx].Buffer);
+            await Client?.Send(Sequences.ModulatedElement(SequenceIdx).Buffers[chunkIdx]);
 
             await Task.Delay(1);
             lock (this) CurrentThreadCount--;
@@ -356,8 +355,45 @@ namespace PF
         private class Sequence
         {
             public Chunk[] Chunks { get; set; }
+
             public Vector2I Size { get; set; }
             public int Duration { get; set; }
+
+            private Vector2I offset;
+            public Vector2I Offset
+            {
+                get => offset;
+
+                set
+                {
+                    buffers = null;
+                    offset = value;
+                }
+            }
+
+            private byte[][] buffers;
+            public byte[][] Buffers
+            {
+                get
+                {
+                    if (buffers == null)
+                    {
+                        var offset = $"OFFSET {Offset.X} {Offset.Y}\n".Encode();
+
+                        buffers = new byte[Chunks.Size()][];
+
+                        for (int i = 0; i < buffers.Length; i++)
+                        {
+                            buffers[i] = new byte[Chunks[i].RawBuffer.Length + offset.Length];
+
+                            System.Array.Copy(offset, buffers[i], offset.Length);
+                            System.Array.Copy(Chunks[i].RawBuffer, 0, buffers[i], offset.Length, Chunks[i].RawBuffer.Length);
+                        }
+                    }
+
+                    return buffers;
+                }
+            }
 
             public Sequence(Chunk[] chunks, Vector2I size, int ms)
             {
@@ -367,16 +403,16 @@ namespace PF
             }
         }
 
-        private struct Chunk
+        private class Chunk
         {
-            public byte[] Buffer;
+            public byte[] RawBuffer;
 
             public Chunk(object obj)
             {
-                Buffer = obj.Encode();
+                RawBuffer = obj.Encode();
             }
 
-            public static explicit operator byte[](Chunk chunk) => chunk.Buffer;
+            public static explicit operator byte[](Chunk chunk) => chunk.RawBuffer;
         }
     }
 }
