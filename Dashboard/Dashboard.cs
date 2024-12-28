@@ -7,6 +7,9 @@ namespace PF
 
     public partial class Dashboard : Node
     {
+        private readonly Dictionary<(string, float), FrameData> FrameCache = new();
+        public readonly List<(Vector2I Size, Image Image)> Sources = new();
+
         [Export] public Button DisconnectButton { get; set; }
         [Export] public TextureRect LoadedImg { get; set; }
         [Export] public RichTextLabel SourceResolution { get; set; }
@@ -31,8 +34,6 @@ namespace PF
 
         public Vector2I Offset { get; set; }
 
-        public readonly List<(Vector2I Size, Image Image)> LoadedImages = new();
-
         private Sequence[] Sequences { get; set; }
         private int SequenceIdx { get; set; }
         private byte ThreadIdx { get; set; }
@@ -48,10 +49,6 @@ namespace PF
         private bool RegisteredDelegates { get; set; }
         private bool Starting { get; set; }
         private bool Running { get; set; }
-
-        private string[] PastPaths { get; set; }
-        private float PastScale { get; set; }
-        private bool PastDither { get; set; }
 
         public static Client Client => Master.Client;
 
@@ -71,7 +68,7 @@ namespace PF
         {
             Debug.LogR($"[color=gold]Connected to {Master.Address}:{Master.Port}");
 
-            Client.Send("SIZE");
+            _ = Client.Send("SIZE".Encode());
 
             if (LoadedImg.Texture.NotNull())
             {
@@ -90,7 +87,7 @@ namespace PF
 
             DrawButtons();
 
-            var size = Sequences.NotEmpty() ? Sequences.ModulatedElement(SequenceIdx).Size : default;
+            var size = Sequences.NotEmpty() ? Sequences.ModulatedElement(SequenceIdx).Frame.Size : default;
 
             StatusLabel.Text = $"Running {Running}\nActive Threads: {CurrentThreadCount}\nResoultion {Master.Resolution.X}x{Master.Resolution.Y}\n{size.X}x{size.Y}";
         }
@@ -112,7 +109,7 @@ namespace PF
             if (Starting || paths.IsEmpty()) return;
 
             Directory = paths[0].TrimToDirectory();
-            LoadedImages.Clear();
+            Sources.Clear();
 
             var min = Vector2I.One * int.MaxValue;
             var max = Vector2I.Zero;
@@ -151,7 +148,7 @@ namespace PF
                 min = min.Min(size);
                 max = max.Max(size);
 
-                LoadedImages.Add((size, img));
+                Sources.Add((size, img));
             }
 
             var sizeX = min.X == max.X ? $"{min.X}" : $"({min.X}-{max.X})";
@@ -159,7 +156,6 @@ namespace PF
             SourceResolution.Text = $"{sizeX}x{sizeY}";
 
             Scale.Value = 1.0f;
-            PastScale = -1;
         }
 
         private async void Start()
@@ -167,7 +163,7 @@ namespace PF
             if (Starting) return;
             if (Running) Stop();
 
-            Running = LoadedImages.NotEmpty();
+            Running = Sources.NotEmpty();
 
             if (Running == false) return;
 
@@ -182,98 +178,28 @@ namespace PF
             StatusLabel.Text = $"[color=magenta]Initiating process...\nThis may take a few seconds...";
 
             Offset = new((int)OffsetX.Value, (int)OffsetY.Value);
+            Sequences = new Sequence[Sources.Count];
+            var scale = (float)Scale.Value;
+            var method = new Method();
 
-            var changed = PastScale != (float)Scale.Value || PastDither != EnableDithering.ButtonPressed;
+            float progressSteps = Sources.Count;
 
-            if (changed)
+            await Task.Delay(1);
+
+            for (int i = 0; i < Sources.Count; i++)
             {
-                var images = new Image[LoadedImages.Count];
-                var sizes = new Vector2I[images.Length];
+                var img = Sources[i].Image;
 
-                var progressMax = 0f;
-
-                for (int i = 0; i < LoadedImages.Count; i++)
+                if (FrameCache.TryGetValue((img.ResourcePath, scale), out var frame) == false)
                 {
-                    images[i] = LoadedImages[i].Image.Duplicate() as Image;
-
-                    var size = sizes[i] = ((Vector2)LoadedImages[i].Size * (float)Scale.Value).RoundToInt();
-                    images[i].Resize(size.X, size.Y);
-
-                    progressMax += size.X * size.Y + (int)ThreadCount.Value;
+                    FrameCache[(img.ResourcePath, scale)] = frame = await FrameData.GenerateAsync(img, scale);
                 }
 
-                Sequences = new Sequence[images.Length];
+                (Sequences[i] = new(this, method, frame, (int)Duration.Value)).SetOffset(Offset);
 
-                for (int i = 0, t = 0; i < images.Length; i++)
-                {
-                    if (threadIdx != ThreadIdx) return;
-
-                    lock (this)
-                    {
-                        Sequences[i] = new(new Chunk[(int)ThreadCount.Value], sizes[i], (int)Duration.Value);
-                    }
-
-                    var collection = new List<(Vector2I, Color)>();
-
-                    for (int k = 0, xi = 0, x = Offset.X; x < Offset.X + sizes[i].X; x++, xi++)
-                    {
-                        for (int yi = 0, y = Offset.Y; y < Offset.Y + sizes[i].Y; y++, yi++, k += 4, t++)
-                        {
-                            if (t > 0 && t % 1000 == 0)
-                            {
-                                Progress.Value = t / progressMax;
-                                await Task.Delay(1);
-                            }
-
-                            if (threadIdx != ThreadIdx) return;
-
-                            var pixel = images[i].GetPixel(xi, yi);
-
-                            // Return on alpha
-                            if (pixel.A > 0)
-                            {
-                                collection.Add((new(xi, yi), pixel));
-                            }
-                        }
-                    }
-
-                    // Shuffle for dithering
-                    if (EnableDithering.ButtonPressed) collection.Shuffle();
-
-                    Sequences[i].Offset = Offset;
-
-                    var array = collection.ToArray();
-
-                    var chunkStep = array.Length / (int)ThreadCount.Value;
-                    var chunks = Sequences[i].Chunks;
-
-                    for (int k = 0; k < chunks.Length; k++)
-                    {
-                        if (threadIdx != ThreadIdx) return;
-
-                        // Last Step
-                        if (k >= chunks.Length - 1) chunks[k] = new(Client.Build(array[(k * chunkStep)..]));
-
-                        // Step
-                        else chunks[k] = new(Client.Build(array[(k * chunkStep)..((k + 1) * chunkStep)]));
-
-                        await Task.Delay(1);
-                    }
-                }
+                Progress.Value = i / progressSteps;
+                await Task.Delay(1);
             }
-
-            else
-            {
-                foreach (var sql in Sequences)
-                {
-                    sql.Duration = (int)Duration.Value;
-
-                    sql.Offset = Offset;
-                }
-            }
-
-            PastDither = EnableDithering.ButtonPressed;
-            PastScale = (float)Scale.Value;
 
             lock (this)
             {
@@ -323,7 +249,7 @@ namespace PF
             {
                 var sequence = Sequences.ModulatedElement(SequenceIdx);
 
-                MapPreview.Size = sequence.Size / screenDiv;
+                MapPreview.Size = sequence.Frame.Size / screenDiv;
                 MapPreview.Position = Offset / screenDiv;
             }
         }
@@ -344,7 +270,8 @@ namespace PF
 
             lock (this) CurrentThreadCount++;
 
-            await Client?.Send(Sequences.ModulatedElement(SequenceIdx).Buffers[chunkIdx]);
+            var seq = Sequences.ModulatedElement(SequenceIdx);
+            await Client?.Send(seq.OffsetBuffer, seq.Chunks[chunkIdx]);
 
             await Task.Delay(1);
             lock (this) CurrentThreadCount--;
@@ -354,65 +281,25 @@ namespace PF
 
         private class Sequence
         {
-            public Chunk[] Chunks { get; set; }
+            public readonly FrameData Frame;
 
-            public Vector2I Size { get; set; }
+            public readonly byte[][] Chunks;
+
+            public byte[] OffsetBuffer { get; set; }
             public int Duration { get; set; }
 
-            private Vector2I offset;
-            public Vector2I Offset
+            public Sequence(Dashboard dashboard, Method method, FrameData frame, int duration)
             {
-                get => offset;
+                Duration = duration;
+                Frame = frame;
 
-                set
-                {
-                    buffers = null;
-                    offset = value;
-                }
+                method.Generate(frame, (int)dashboard.ThreadCount.Value, dashboard.EnableDithering.ButtonPressed, out Chunks);
             }
 
-            private byte[][] buffers;
-            public byte[][] Buffers
+            public void SetOffset(Vector2I offset)
             {
-                get
-                {
-                    if (buffers == null)
-                    {
-                        var offset = $"OFFSET {Offset.X} {Offset.Y}\n".Encode();
-
-                        buffers = new byte[Chunks.Size()][];
-
-                        for (int i = 0; i < buffers.Length; i++)
-                        {
-                            buffers[i] = new byte[Chunks[i].RawBuffer.Length + offset.Length];
-
-                            System.Array.Copy(offset, buffers[i], offset.Length);
-                            System.Array.Copy(Chunks[i].RawBuffer, 0, buffers[i], offset.Length, Chunks[i].RawBuffer.Length);
-                        }
-                    }
-
-                    return buffers;
-                }
+                OffsetBuffer = $"OFFSET {offset.X} {offset.Y}".Encode();
             }
-
-            public Sequence(Chunk[] chunks, Vector2I size, int ms)
-            {
-                Chunks = chunks;
-                Duration = ms;
-                Size = size;
-            }
-        }
-
-        private class Chunk
-        {
-            public byte[] RawBuffer;
-
-            public Chunk(object obj)
-            {
-                RawBuffer = obj.Encode();
-            }
-
-            public static explicit operator byte[](Chunk chunk) => chunk.RawBuffer;
         }
     }
 }

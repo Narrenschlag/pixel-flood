@@ -85,57 +85,27 @@ namespace PF
         // Brilleputzspray
         // + Mikrophasertuch
         // = Profit
-        public static string Build(Vector2I point, Color color)
+        public async Task Send(params byte[][] buffers)
         {
-            return Build(new[] { (point, color) });
-        }
-
-        public static string Build(params (Vector2I Point, Color Color)[] sets)
-        {
-            var stringBuilder = new StringBuilder();
-
-            for (int i = 0; i < sets.Length; i++)
-            {
-                Append(stringBuilder, ref sets[i].Point, ref sets[i].Color);
-            }
-
-            return stringBuilder.ToString();
-        }
-
-        public static string Build(Color color, params Vector2I[] points)
-        {
-            var stringBuilder = new StringBuilder();
-
-            for (int i = 0; i < points.Length; i++)
-            {
-                Append(stringBuilder, ref points[i], ref color);
-            }
-
-            return stringBuilder.ToString();
-        }
-
-        public static void Append(StringBuilder builder, ref Vector2I point, ref Color value)
-        {
-            var hex = value.ToHtml();
-
-            builder.AppendLine($"PX {point.X} {point.Y} {(value.A < 1f ? hex[6..8] : "")}{hex[0..6]}");
-        }
-
-        public void Send(string text) => _ = Send(text.Encode());
-
-        public async Task Send(byte[] buffer)
-        {
-            if (Connected == false || TcpClient.GetStream() is not NetworkStream stream) return;
+            if (Connected == false || buffers.IsEmpty() || TcpClient.GetStream() is not NetworkStream stream) return;
 
             if (EnableMultiThreading)
             {
-                await stream.WriteAsync(buffer, CancellationToken);
+                for (int i = 0; i < buffers.Length; i++)
+                {
+                    await stream.WriteAsync(buffers[i], CancellationToken);
+                }
+
                 await stream.FlushAsync(CancellationToken);
             }
 
             else
             {
-                stream.Write(buffer);
+                for (int i = 0; i < buffers.Length; i++)
+                {
+                    stream.Write(buffers[i]);
+                }
+
                 stream.Flush();
             }
         }
