@@ -49,6 +49,11 @@ namespace PF
         private bool Starting { get; set; }
         private bool Running { get; set; }
 
+        private string[] PastPaths { get; set; }
+        private Vector2I PastOffset { get; set; }
+        private float PastScale { get; set; }
+        private bool PastDither { get; set; }
+
         public static Client Client => Master.Client;
 
         public override void _EnterTree()
@@ -155,6 +160,7 @@ namespace PF
             SourceResolution.Text = $"{sizeX}x{sizeY}";
 
             Scale.Value = 1.0f;
+            PastScale = -1;
         }
 
         private async void Start()
@@ -178,78 +184,95 @@ namespace PF
 
             Offset = new((int)OffsetX.Value, (int)OffsetY.Value);
 
-            var images = new Image[LoadedImages.Count];
-            var sizes = new Vector2I[images.Length];
+            var changed = PastScale != (float)Scale.Value || PastDither != EnableDithering.ButtonPressed || PastOffset != Offset;
 
-            var progressMax = 0f;
-
-            for (int i = 0; i < LoadedImages.Count; i++)
+            if (changed)
             {
-                images[i] = LoadedImages[i].Image.Duplicate() as Image;
+                var images = new Image[LoadedImages.Count];
+                var sizes = new Vector2I[images.Length];
 
-                var size = sizes[i] = ((Vector2)LoadedImages[i].Size * (float)Scale.Value).RoundToInt();
-                images[i].Resize(size.X, size.Y);
+                var progressMax = 0f;
 
-                progressMax += size.X * size.Y + (int)ThreadCount.Value;
-            }
-
-            Sequences = new Sequence[images.Length];
-
-            for (int i = 0, t = 0; i < images.Length; i++)
-            {
-                if (threadIdx != ThreadIdx) return;
-
-                lock (this)
+                for (int i = 0; i < LoadedImages.Count; i++)
                 {
-                    Sequences[i] = new(new Chunk[(int)ThreadCount.Value], sizes[i], (int)Duration.Value);
+                    images[i] = LoadedImages[i].Image.Duplicate() as Image;
+
+                    var size = sizes[i] = ((Vector2)LoadedImages[i].Size * (float)Scale.Value).RoundToInt();
+                    images[i].Resize(size.X, size.Y);
+
+                    progressMax += size.X * size.Y + (int)ThreadCount.Value;
                 }
 
-                var collection = new List<(Vector2I, Color)>();
-                var pixels = images[i].Data
+                Sequences = new Sequence[images.Length];
 
-                for (int xi = 0, x = Offset.X; x < Offset.X + sizes[i].X; x++, xi++)
-                {
-                    for (int yi = 0, y = Offset.Y; y < Offset.Y + sizes[i].Y; y++, yi++, t++)
-                    {
-                        if (threadIdx != ThreadIdx) return;
-
-                        var pixel = images[i].GetPixel(xi, yi);
-
-                        if (pixel.A > 0)
-                        {
-                            collection.Add((new(xi, yi), pixel));
-                        }
-
-                        if (t > 0 && t % 1000 == 0)
-                        {
-                            Progress.Value = t / progressMax;
-                            await Task.Delay(1);
-                        }
-                    }
-                }
-
-                // Shuffle for dithering
-                if (EnableDithering.ButtonPressed) collection.Shuffle();
-
-                var array = collection.ToArray();
-
-                var chunkStep = array.Length / (int)ThreadCount.Value;
-                var offset = $"OFFSET {Offset.X} {Offset.Y}";
-                var chunks = Sequences[i].Chunks;
-
-                for (int k = 0; k < chunks.Length; k++)
+                for (int i = 0, t = 0; i < images.Length; i++)
                 {
                     if (threadIdx != ThreadIdx) return;
 
-                    // Last Step
-                    if (k >= chunks.Length - 1) chunks[k] = new($"{offset}\n{Client.Build(array[(k * chunkStep)..])}");
+                    lock (this)
+                    {
+                        Sequences[i] = new(new Chunk[(int)ThreadCount.Value], sizes[i], (int)Duration.Value);
+                    }
 
-                    // Step
-                    else chunks[k] = new($"{offset}\n{Client.Build(array[(k * chunkStep)..((k + 1) * chunkStep)])}");
+                    var collection = new List<(Vector2I, Color)>();
 
-                    await Task.Delay(1);
+                    for (int k = 0, xi = 0, x = Offset.X; x < Offset.X + sizes[i].X; x++, xi++)
+                    {
+                        for (int yi = 0, y = Offset.Y; y < Offset.Y + sizes[i].Y; y++, yi++, k += 4, t++)
+                        {
+                            if (t > 0 && t % 1000 == 0)
+                            {
+                                Progress.Value = t / progressMax;
+                                await Task.Delay(1);
+                            }
+
+                            if (threadIdx != ThreadIdx) return;
+
+                            var pixel = images[i].GetPixel(xi, yi);
+
+                            // Return on alpha
+                            if (pixel.A > 0)
+                            {
+                                collection.Add((new(xi, yi), pixel));
+                            }
+                        }
+                    }
+
+                    // Shuffle for dithering
+                    if (EnableDithering.ButtonPressed) collection.Shuffle();
+
+                    var array = collection.ToArray();
+
+                    var chunkStep = array.Length / (int)ThreadCount.Value;
+                    var offset = $"OFFSET {Offset.X} {Offset.Y}";
+                    var chunks = Sequences[i].Chunks;
+
+                    for (int k = 0; k < chunks.Length; k++)
+                    {
+                        if (threadIdx != ThreadIdx) return;
+
+                        // Last Step
+                        if (k >= chunks.Length - 1) chunks[k] = new($"{offset}\n{Client.Build(array[(k * chunkStep)..])}");
+
+                        // Step
+                        else chunks[k] = new($"{offset}\n{Client.Build(array[(k * chunkStep)..((k + 1) * chunkStep)])}");
+
+                        await Task.Delay(1);
+                    }
                 }
             }
+
+            else
+            {
+                foreach (var sql in Sequences)
+                {
+                    sql.Duration = (int)Duration.Value;
+                }
+            }
+
+            PastDither = EnableDithering.ButtonPressed;
+            PastScale = (float)Scale.Value;
+            PastOffset = Offset;
 
             lock (this)
             {
@@ -307,7 +330,6 @@ namespace PF
         private void Stop()
         {
             Progress.Visible = false;
-            Sequences = null;
 
             Starting = false;
             Running = false;
@@ -331,11 +353,11 @@ namespace PF
             SendThread(chunkIdx, threadIdx);
         }
 
-        private struct Sequence
+        private class Sequence
         {
-            public Chunk[] Chunks;
-            public Vector2I Size;
-            public int Duration;
+            public Chunk[] Chunks { get; set; }
+            public Vector2I Size { get; set; }
+            public int Duration { get; set; }
 
             public Sequence(Chunk[] chunks, Vector2I size, int ms)
             {
